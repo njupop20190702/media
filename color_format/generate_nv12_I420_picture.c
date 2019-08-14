@@ -9,9 +9,9 @@
 #define FORAMT_I420 1
 
 typedef struct pixel_color{
-    char y;
-    char u;
-    char v;
+    unsigned char y;
+    unsigned char u;
+    unsigned char v;
 } pixel_color_t;
 
 typedef struct frame_buf {
@@ -51,12 +51,16 @@ static void init_palette(void) {
 }
 
 static int get_palette_index(unsigned int pic_w, unsigned int pic_h, unsigned long pixel_index, unsigned char frame_index) {
-    return ((pixel_index % pic_w) / 128 + ((pixel_index / pic_w / 64) & 1) * 3) % 6;
+    int index = 0;
+    index = (pixel_index % pic_w) / 128 + ((pixel_index / pic_w / 64) & 1) * 3;
+    index = index + (frame_index) % 6;
+    index = index % 6;
+    return index;
 }
 
 static int draw_frame(frame_buf_t *frame) {
     unsigned long luma_pixel_count = 0, i = 0, j = 0;
-    char *y = NULL, *uv = NULL;
+    unsigned char *y = NULL, *uv = NULL;
     int palette_indx = 0;
     int uv_index = 0;
 
@@ -68,19 +72,12 @@ static int draw_frame(frame_buf_t *frame) {
     luma_pixel_count = frame->pic_w*frame->pic_h;
     y = frame->buf;
     uv = frame->buf + luma_pixel_count;
-    int last_indx = -1 ;
-    int changed = 0;
     int v_offset = 0;
 
     v_offset = luma_pixel_count>>2;
 
     for (i=0;i<luma_pixel_count;i++) {
         palette_indx = get_palette_index(frame->pic_w, frame->pic_h, i, frame->frame_index);
-
-        if (last_indx < 0 || last_indx != palette_indx) {
-            last_indx = palette_indx;
-            changed = 1;
-        }
 
         y[i] = g_palette[palette_indx].y;
 #if FORAMT_NV12
@@ -176,12 +173,12 @@ int main(void) {
 
     init_palette();
 
-    frame_pool_init(frame_pool, 640, 320, POOL_COUNT);
+    frame_pool_init(frame_pool, 640, 480, POOL_COUNT);
 
     for (i=0;i<POOL_COUNT;i++) {
         draw_frame(frame_pool + i);
         sprintf(path, PATH"%d", i);
-        dump_frame_start(fd, path, frame_pool);
+        dump_frame_start(fd, path, frame_pool + i);
         dump_frame_end(fd);
     }
 
